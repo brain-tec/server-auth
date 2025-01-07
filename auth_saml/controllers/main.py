@@ -25,6 +25,7 @@ from odoo.http import request
 from odoo.tools.misc import clean_context
 
 from odoo.addons.web.controllers.home import Home
+from odoo.addons.web.controllers.session import Session
 from odoo.addons.web.controllers.utils import _get_login_redirect_url, ensure_db
 
 _logger = logging.getLogger(__name__)
@@ -241,7 +242,13 @@ class AuthSAMLController(http.Controller):
                 url = f"/#action={action}"
             elif menu:
                 url = f"/#menu_id={menu}"
-            pre_uid = request.session.authenticate(*credentials)
+
+            credentials_dict = {
+                "login": credentials[1],
+                "token": credentials[2],
+                "type": "saml_token",
+            }
+            pre_uid = request.session.authenticate(dbname, credentials_dict)
             resp = request.redirect(_get_login_redirect_url(pre_uid, url), 303)
             resp.autocorrect_location_header = False
             return resp
@@ -291,3 +298,22 @@ class AuthSAMLController(http.Controller):
                 ),
                 [("Content-Type", "text/xml")],
             )
+
+
+class SessionSAML(Session):
+    @http.route("/web/session/logout", type="http", auth="none", readonly=True)
+    def logout(self, redirect="/odoo"):
+        saml_user = (
+            request.env["res.users.saml"]
+            .sudo()
+            .search(
+                [
+                    ("user_id", "=", request.env.user.id),
+                    ("saml_access_token", "!=", False),
+                ]
+            )
+        )
+        if saml_user:
+            _logger.info("Delete saml token")
+            saml_user.saml_access_token = False
+        return super().logout(redirect=redirect)
