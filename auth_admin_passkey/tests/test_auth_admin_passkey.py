@@ -96,3 +96,55 @@ class TestAuthAdminPasskey(common.TransactionCase):
             {"type": "password", "password": self.sysadmin_passkey},
             {"interactive": True},
         )
+
+    def test_07_email_notification_logic(self):
+        """Test that the email notification logic works correctly."""
+        config["auth_admin_passkey_sysadmin_email"] = "admin@example.com"
+        config["auth_admin_passkey_send_to_user"] = True
+        self.user.email = "user@example.com"
+
+        with self.env.cr.savepoint():
+            self.user._send_email_passkey(self.user)
+            mail_ids = self.env["mail.mail"].search(
+                [("email_to", "in", ["admin@example.com", "user@example.com"])]
+            )
+            self.assertEqual(
+                len(mail_ids), 2, "Emails should be sent to both admin and user."
+            )
+            for mail in mail_ids:
+                self.assertIn("Passkey used", mail.subject)
+
+    def test_08_missing_sysadmin_passkey(self):
+        """Test behavior when no passkey is configured."""
+        config["auth_admin_passkey_password"] = False
+        with self.assertRaises(exceptions.AccessDenied):
+            self.user._check_credentials(
+                {"type": "password", "password": self.sysadmin_passkey},
+                {"interactive": True},
+            )
+
+    def test_09_empty_passkey_fails(self):
+        """Test behavior when an empty passkey is provided."""
+        config["auth_admin_passkey_password"] = self.sysadmin_passkey
+        with self.assertRaises(exceptions.AccessDenied):
+            self.user._check_credentials(
+                {"type": "password", "password": ""},
+                {"interactive": True},
+            )
+
+    def test_10_prepare_email_passkey(self):
+        """Test email preparation logic."""
+        subject, body_html = self.user._prepare_email_passkey(self.user)
+        self.assertIn("Passkey used", subject)
+        self.assertIn(self.user.login, body_html)
+        self.assertIn("Login date", body_html)
+
+    def test_11_incorrect_encrypted_password(self):
+        """Test login fails with incorrect encrypted password."""
+        config["auth_admin_passkey_password"] = self.sysadmin_passkey_encrypted
+        config["auth_admin_passkey_password_sha512_encrypted"] = True
+        with self.assertRaises(exceptions.AccessDenied):
+            self.user._check_credentials(
+                {"type": "password", "password": "WrongEncryptedPassword"},
+                {"interactive": True},
+            )
