@@ -17,9 +17,7 @@ from odoo import (
     exceptions,
     http,
     models,
-)
-from odoo import (
-    registry as registry_get,
+    modules,
 )
 from odoo.http import request
 from odoo.tools.misc import clean_context
@@ -174,10 +172,9 @@ class AuthSAMLController(http.Controller):
         }
         return state
 
-    @http.route("/auth_saml/get_auth_request", type="http", auth="none")
+    @http.route("/auth_saml/get_auth_request", type="http", auth="none", readonly=False)
     def get_auth_request(self, pid):
         provider_id = int(pid)
-
         provider = request.env["auth.saml.provider"].sudo().browse(provider_id)
         redirect_url = provider._get_auth_request(
             self._get_saml_extra_relaystate(), request.httprequest.url_root.rstrip("/")
@@ -192,7 +189,9 @@ class AuthSAMLController(http.Controller):
         redirect.autocorrect_location_header = True
         return redirect
 
-    @http.route("/auth_saml/signin", type="http", auth="none", csrf=False)
+    @http.route(
+        "/auth_saml/signin", type="http", auth="none", csrf=False, readonly=False
+    )
     @fragment_to_query_string
     def signin(self, **kw):
         """
@@ -254,10 +253,8 @@ class AuthSAMLController(http.Controller):
             return resp
 
         except exceptions.AccessDenied:
-            # saml credentials not valid,
-            # user could be on a temporary session
+            # saml credentials not valid, user could be on a temporary session
             _logger.info("SAML2: access denied")
-
             url = "/web/login?saml_error=expired"
             redirect = werkzeug.utils.redirect(url, 303)
             redirect.autocorrect_location_header = False
@@ -272,7 +269,9 @@ class AuthSAMLController(http.Controller):
         redirect.autocorrect_location_header = False
         return redirect
 
-    @http.route("/auth_saml/metadata", type="http", auth="none", csrf=False)
+    @http.route(
+        "/auth_saml/metadata", type="http", auth="none", csrf=False, readonly=False
+    )
     def saml_metadata(self, **kw):
         provider = kw.get("p")
         dbname = kw.get("d")
@@ -280,17 +279,15 @@ class AuthSAMLController(http.Controller):
 
         if not dbname or not provider:
             _logger.debug("Metadata page asked without database name or provider id")
-            return request.not_found(_("Missing parameters"))
+            raise request.not_found(_("Missing parameters"))
 
         provider = int(provider)
 
-        registry = registry_get(dbname)
-
-        with registry.cursor() as cr:
+        with modules.registry.Registry(dbname).cursor() as cr:
             env = api.Environment(cr, SUPERUSER_ID, {})
             client = env["auth.saml.provider"].sudo().browse(provider)
             if not client.exists():
-                return request.not_found(_("Unknown provider"))
+                raise request.not_found(_("Unknown provider"))
 
             return request.make_response(
                 client._metadata_string(

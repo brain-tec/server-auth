@@ -7,7 +7,7 @@ from typing import Set  # noqa
 
 import passlib
 
-from odoo import SUPERUSER_ID, _, api, fields, models, registry, tools
+from odoo import SUPERUSER_ID, _, api, fields, models, modules, tools
 from odoo.exceptions import AccessDenied, ValidationError
 
 from .ir_config_parameter import ALLOW_SAML_UID_AND_PASSWORD
@@ -48,7 +48,7 @@ class ResUser(models.Model):
         if len(user) != 1:
             raise AccessDenied()
 
-        with registry(self.env.cr.dbname).cursor() as new_cr:
+        with modules.registry.Registry(self.env.cr.dbname).cursor() as new_cr:
             new_env = api.Environment(new_cr, self.env.uid, self.env.context)
             # Update the token. Need to be committed, otherwise the token is not visible
             # to other envs, like the one used in login_and_redirect
@@ -84,13 +84,8 @@ class ResUser(models.Model):
         and the interesting code is inside the "except" clause.
         """
         try:
-            if self.allow_saml_and_password():
-                # If both SAML and password are allowed we can try first the normal auth
-                return super()._check_credentials(credential, env)
-            else:
-                # If only SAML we go to the except clause
-                raise AccessDenied() from None
-
+            # Attempt a regular login (via other auth addons) first.
+            return super()._check_credentials(credential, env)
         except (AccessDenied, passlib.exc.PasswordSizeError):
             if not (credential["type"] == "saml_token" and credential["token"]):
                 raise
