@@ -14,8 +14,8 @@
                 >
                     <field name="allow_saml_uid_and_internal_password" />
                     <div class="row mt16">
-                        <label for="saml_provider_id" class="col-lg-3 o_light_label"/>
-                        <field name="saml_provider_id"/>
+                        <label for="saml_provider_id" class="col-lg-3 o_light_label" />
+                        <field name="saml_provider_id" />
                     </div>
                 </setting>
             </xpath>
