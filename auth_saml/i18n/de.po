@@ -37,13 +37,8 @@ msgid "Algorithm used to sign requests."
 msgstr "Algorithmus, der zum Signieren von Anfragen verwendet wird."
 
 #. module: auth_saml
-#: model_terms:ir.ui.view,arch_db:auth_saml.auth_saml_base_settings_form
-msgid ""
-"Allow SAML users to possess an Odoo password (warning: decreases security)"
-msgstr ""
-
-#. module: auth_saml
 #: model:ir.model.fields,field_description:auth_saml.field_res_config_settings__allow_saml_uid_and_internal_password
+#: model_terms:ir.ui.view,arch_db:auth_saml.auth_saml_base_settings_form
 msgid ""
 "Allow SAML users to possess an Odoo password (warning: decreases security)"
 msgstr ""
